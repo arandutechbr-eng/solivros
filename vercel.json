@@ -1,0 +1,36 @@
+{
+  "services": {
+    "frontend": {
+      "root": "simulado",
+      "framework": "vite"
+    },
+    "backend": {
+      "root": "simulado",
+      "framework": "fastapi",
+      "entrypoint": "api.index:app"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api(/.*)?",
+      "destination": {
+        "type": "service",
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/health",
+      "destination": {
+        "type": "service",
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "type": "service",
+        "service": "frontend"
+      }
+    }
+  ]
+}
