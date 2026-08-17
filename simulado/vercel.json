@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 30,
+      "includeFiles": "data/**",
+      "excludeFiles": "{tests/**,src/**,node_modules/**,**/*.test.tsx}"
+    }
+  },
+  "rewrites": [
+    { "source": "/((?!api/|health|assets/).*)", "destination": "/index.html" }
+  ]
+}
