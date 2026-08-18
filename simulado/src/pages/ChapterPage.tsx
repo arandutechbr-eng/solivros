@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useSubject } from "../context/SubjectContext";
 import { getChapter, startQuiz } from "../services/simulado";
 import type { ChapterDetail } from "../types";
 
@@ -13,22 +14,27 @@ const KIND_LABEL: Record<string, string> = {
 export function ChapterPage() {
   const { chapterId } = useParams();
   const navigate = useNavigate();
+  const { subjectId, setSubjectId } = useSubject();
   const [chapter, setChapter] = useState<ChapterDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
 
   useEffect(() => {
     if (!chapterId) return;
+    const prefix = chapterId.split("-")[0];
+    if (prefix === "portugues" || prefix === "matematica" || prefix === "ingles") {
+      setSubjectId(prefix);
+    }
     getChapter(chapterId)
       .then(setChapter)
       .catch(() => setError("Capítulo não encontrado."));
-  }, [chapterId]);
+  }, [chapterId, setSubjectId]);
 
   async function beginChapterQuiz() {
     if (!chapterId) return;
     setStarting(true);
     try {
-      const attempt = await startQuiz({ mode: "chapter", chapter_id: chapterId });
+      const attempt = await startQuiz({ mode: "chapter", subject_id: subjectId, chapter_id: chapterId });
       navigate(`/simulados/${attempt.id}`);
     } catch {
       setError("Não foi possível iniciar o simulado deste tópico.");

@@ -25,8 +25,33 @@ GABARITO_HEADING_RE = re.compile(r"Æ\s+GABARITO|^\s*GABARITO\s*$", re.IGNORECAS
 NUMBER_LINE_RE = re.compile(r"^\d{1,3}$")
 LETTER_LINE_RE = re.compile(r"^[A-E]$", re.IGNORECASE)
 
-HARD_TOPICS = ("INTERPRETA", "COERENCIA", "COESAO", "COERÊNCIA", "COESÃO")
-EASY_TOPICS = ("ORTOGRAFIA", "PONTUA", "ACENTUA", "CRASE")
+HARD_TOPICS = (
+    "INTERPRETA",
+    "COERENCIA",
+    "COESAO",
+    "COERÊNCIA",
+    "COESÃO",
+    "COMBINATÓRIA",
+    "COMBINATORIA",
+    "LOGARÍTMIC",
+    "TRIGONOM",
+    "GEOMETRIA ESPACIAL",
+    "JUROS COMPOSTOS",
+    "PROBABILIDADE",
+)
+EASY_TOPICS = (
+    "ORTOGRAFIA",
+    "PONTUA",
+    "ACENTUA",
+    "CRASE",
+    "ADIÇÃO",
+    "ADICAO",
+    "NÚMEROS NATURAIS",
+    "NUMEROS NATURAIS",
+    "NÚMEROS INTEIROS",
+    "FRAÇÕES",
+    "DECIMAIS",
+)
 
 
 @dataclass(frozen=True)
@@ -38,6 +63,7 @@ class ExtractedOption:
 
 @dataclass(frozen=True)
 class ExtractedQuestion:
+    id: int
     number: int
     exam_source: str
     prompt: str
@@ -56,6 +82,7 @@ class ExtractedQuestion:
 def extract_exam_questions(path: Path) -> list[ExtractedQuestion]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     pages: list[dict] = payload.get("pages") or []
+    book_id = int(payload.get("book_id") or 0)
     book = parse_extracted_book(path, source_file=path.name)
     gabarito = _parse_gabarito(pages)
     page_to_chapter = _page_chapter_map(book)
@@ -102,6 +129,7 @@ def extract_exam_questions(path: Path) -> list[ExtractedQuestion]:
         )
         extracted.append(
             ExtractedQuestion(
+                id=book_id * 10_000 + number,
                 number=number,
                 exam_source=item["source"],
                 prompt=prompt,
@@ -134,7 +162,7 @@ def _parse_gabarito(pages: list[dict]) -> dict[int, str]:
         text = (page.get("text") or "").replace("\r\n", "\n")
         if not collecting:
             match = GABARITO_HEADING_RE.search(text)
-            if match is None or int(page["page"]) < 180:
+            if match is None or int(page["page"]) <= 2:
                 continue
             collecting = True
             text = text[match.end() :]
@@ -164,14 +192,25 @@ def _parse_gabarito(pages: list[dict]) -> dict[int, str]:
     return answers
 
 
+def _gabarito_start_page(pages: list[dict]) -> int:
+    for page in pages:
+        page_number = int(page["page"])
+        if page_number <= 2:
+            continue
+        if GABARITO_HEADING_RE.search(page.get("text") or ""):
+            return page_number
+    return max((int(page["page"]) for page in pages), default=3)
+
+
 def _split_raw_questions(pages: list[dict]) -> list[dict]:
+    gabarito_page = _gabarito_start_page(pages)
     parts: list[tuple[int, str]] = []
     for page in pages:
         page_number = int(page["page"])
-        if page_number < 3 or page_number > 182:
+        if page_number < 3 or page_number > gabarito_page:
             continue
         text = page.get("text") or ""
-        if page_number >= 180:
+        if page_number >= gabarito_page - 1:
             heading = GABARITO_HEADING_RE.search(text)
             if heading:
                 text = text[: heading.start()]
@@ -274,6 +313,7 @@ def _page_chapter_map(book) -> dict[int, dict[str, str]]:
             mapping[page] = {"id": chapter.id, "title": chapter.title}
     if study:
         last = study[-1]
-        for page in range(last.end_page + 1, 183):
+        last_page = max((chapter.end_page for chapter in study), default=last.end_page)
+        for page in range(last.end_page + 1, last_page + 8):
             mapping.setdefault(page, {"id": last.id, "title": last.title})
     return mapping

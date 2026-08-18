@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from .catalog import GUEST_USER_ID, load_questions, question_map
 from .models import QuizAnswer, QuizAttempt, UserProgress
 from .records import QuestionRecord
+from .subjects import SUBJECTS, get_subject
 
 MODE_COUNTS = {"quick": 10, "medium": 20, "full": 50, "chapter": 15}
 MODE_TITLES = {
@@ -38,14 +39,20 @@ def start_quiz(
     db: Session,
     *,
     mode: str,
+    subject_id: str | None,
     chapter_id: str | None,
     count: int | None,
     difficulty: str,
     time_limit_minutes: int | None,
 ) -> QuizAttempt:
+    try:
+        subject = _resolve_subject(subject_id, chapter_id)
+    except KeyError as exc:
+        raise QuizError("Matéria não encontrada.", 404) from exc
+
     pool = [
         question
-        for question in load_questions()
+        for question in load_questions(subject.id)
         if (not chapter_id or question.chapter_id == chapter_id)
         and (not difficulty or difficulty == "all" or question.difficulty == difficulty)
     ]
@@ -54,13 +61,14 @@ def start_quiz(
 
     wanted = count or MODE_COUNTS.get(mode, 10)
     selected = random.sample(pool, k=min(wanted, len(pool)))
-    title = MODE_TITLES.get(mode, "Simulado")
+    title = f"{subject.title} — {MODE_TITLES.get(mode, 'Simulado')}"
     if chapter_id and selected:
         title = f"{title} — {selected[0].chapter_title}"
 
     attempt = QuizAttempt(
         mode=mode,
         title=title,
+        subject_id=subject.id,
         chapter_id=chapter_id,
         question_count=len(selected),
         difficulty=difficulty or "all",
@@ -205,6 +213,14 @@ def _apply_level(progress: UserProgress) -> None:
             current = (threshold, level, name)
     progress.level = current[1]
     progress.level_name = current[2]
+
+
+def _resolve_subject(subject_id: str | None, chapter_id: str | None):
+    if chapter_id:
+        for subject in SUBJECTS:
+            if chapter_id.startswith(f"{subject.id}-"):
+                return subject
+    return get_subject(subject_id)
 
 
 def next_level_xp(xp: int) -> int | None:

@@ -1,10 +1,12 @@
 import { FormEvent, type ReactNode, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useSubject } from "../context/SubjectContext";
 import { getContent, startQuiz } from "../services/simulado";
 import type { ChapterSummary } from "../types";
 
 export function CustomQuizPage() {
   const navigate = useNavigate();
+  const { subjectId, subject } = useSubject();
   const [chapters, setChapters] = useState<ChapterSummary[]>([]);
   const [count, setCount] = useState(10);
   const [chapterId, setChapterId] = useState("");
@@ -14,10 +16,11 @@ export function CustomQuizPage() {
   const [starting, setStarting] = useState(false);
 
   useEffect(() => {
-    getContent()
+    setChapterId("");
+    getContent(subjectId)
       .then((book) => setChapters(book.chapters))
       .catch(() => setError("Não foi possível carregar os tópicos."));
-  }, []);
+  }, [subjectId]);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -25,6 +28,7 @@ export function CustomQuizPage() {
     try {
       const attempt = await startQuiz({
         mode: "custom",
+        subject_id: subjectId,
         count,
         chapter_id: chapterId || undefined,
         difficulty,
@@ -45,6 +49,7 @@ export function CustomQuizPage() {
           ← Voltar
         </Link>
         <h1 className="mt-3 text-3xl font-semibold text-white">Simulado personalizado</h1>
+        {subject && <p className="mt-2 text-slate-400">{subject.title}</p>}
       </div>
 
       {error && <p className="text-sm text-rose-300">{error}</p>}

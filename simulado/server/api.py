@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from . import quiz_service
-from .catalog import load_book
+from .catalog import find_chapter, list_subjects, load_book
 from .database import get_db
 from .schemas import (
     AnswerFeedback,
@@ -15,15 +15,42 @@ from .schemas import (
     ParagraphPublic,
     ProgressResponse,
     StartQuizRequest,
+    SubjectPublic,
 )
 from .serializers import attempt_answered_count, serialize_question, source_of
+from .subjects import DEFAULT_SUBJECT_ID
 
 router = APIRouter(prefix="/api")
 
 
+@router.get("/subjects", response_model=list[SubjectPublic])
+def get_subjects() -> list[SubjectPublic]:
+    items: list[SubjectPublic] = []
+    for subject in list_subjects():
+        try:
+            book = load_book(subject.id)
+        except FileNotFoundError:
+            continue
+        chapters = [chapter for chapter in book.chapters if chapter.title.upper() != "GABARITO"]
+        items.append(
+            SubjectPublic(
+                id=subject.id,
+                title=subject.title,
+                subtitle=subject.subtitle,
+                question_count=book.question_count,
+                chapter_count=len(chapters),
+                source_file=book.source_file,
+            )
+        )
+    return items
+
+
 @router.get("/content", response_model=ContentBook)
-def get_content() -> ContentBook:
-    book = load_book()
+def get_content(subject: str = Query(default=DEFAULT_SUBJECT_ID)) -> ContentBook:
+    try:
+        book = load_book(subject)
+    except (KeyError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=404, detail="Matéria não encontrada") from exc
     chapters = [chapter for chapter in book.chapters if chapter.title.upper() != "GABARITO"]
     return ContentBook(
         source_file=book.source_file,
@@ -33,22 +60,26 @@ def get_content() -> ContentBook:
         chapter_count=len(chapters),
         paragraph_count=sum(chapter.paragraph_count for chapter in chapters),
         question_count=book.question_count,
+        subject_id=book.subject_id,
         chapters=[_chapter_summary(chapter) for chapter in chapters],
     )
 
 
 @router.get("/content/chapters", response_model=list[ChapterSummary])
-def list_chapters() -> list[ChapterSummary]:
-    book = load_book()
+def list_chapters(subject: str = Query(default=DEFAULT_SUBJECT_ID)) -> list[ChapterSummary]:
+    try:
+        book = load_book(subject)
+    except (KeyError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=404, detail="Matéria não encontrada") from exc
     return [_chapter_summary(chapter) for chapter in book.chapters if chapter.title.upper() != "GABARITO"]
 
 
 @router.get("/content/chapters/{chapter_id}", response_model=ChapterDetail)
 def get_chapter(chapter_id: str) -> ChapterDetail:
-    book = load_book()
-    chapter = next((item for item in book.chapters if item.id == chapter_id), None)
-    if chapter is None:
-        raise HTTPException(status_code=404, detail="Capítulo não encontrado")
+    try:
+        _, chapter = find_chapter(chapter_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Capítulo não encontrado") from exc
     summary = _chapter_summary(chapter)
     return ChapterDetail(
         **summary.model_dump(),
@@ -73,6 +104,7 @@ def start_quiz(payload: StartQuizRequest, db: Session = Depends(get_db)) -> Atte
         attempt = quiz_service.start_quiz(
             db,
             mode=payload.mode,
+            subject_id=payload.subject_id,
             chapter_id=payload.chapter_id,
             count=payload.count,
             difficulty=payload.difficulty,
@@ -169,6 +201,7 @@ def _attempt_summary(attempt) -> AttemptSummary:
         id=attempt.id,
         mode=attempt.mode,
         title=attempt.title,
+        subject_id=attempt.subject_id,
         chapter_id=attempt.chapter_id,
         question_count=attempt.question_count,
         difficulty=attempt.difficulty,

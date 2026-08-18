@@ -59,13 +59,24 @@ export type ContentBook = {
   chapter_count: number;
   paragraph_count: number;
   question_count: number;
+  subject_id: string;
   chapters: ChapterSummary[];
+};
+
+export type SubjectPublic = {
+  id: string;
+  title: string;
+  subtitle: string;
+  question_count: number;
+  chapter_count: number;
+  source_file: string;
 };
 
 export type AttemptSummary = {
   id: number;
   mode: string;
   title: string;
+  subject_id: string | null;
   chapter_id: string | null;
   question_count: number;
   difficulty: string;
@@ -110,6 +121,7 @@ export type Progress = {
 
 export type StartQuizPayload = {
   mode: "quick" | "medium" | "full" | "chapter" | "custom";
+  subject_id?: string;
   chapter_id?: string;
   count?: number;
   difficulty?: string;

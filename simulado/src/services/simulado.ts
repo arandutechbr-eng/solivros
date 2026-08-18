@@ -7,10 +7,16 @@ import type {
   ContentBook,
   Progress,
   StartQuizPayload,
+  SubjectPublic,
 } from "../types";
 
-export async function getContent(): Promise<ContentBook> {
-  const { data } = await api.get<ContentBook>("/api/content");
+export async function getSubjects(): Promise<SubjectPublic[]> {
+  const { data } = await api.get<SubjectPublic[]>("/api/subjects");
+  return data;
+}
+
+export async function getContent(subjectId: string): Promise<ContentBook> {
+  const { data } = await api.get<ContentBook>("/api/content", { params: { subject: subjectId } });
   return data;
 }
 

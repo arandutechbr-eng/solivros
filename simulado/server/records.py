@@ -25,6 +25,7 @@ class QuestionRecord:
     paragraph_id: str
     correct_letter: str
     source_file: str
+    subject_id: str
     options: tuple[OptionRecord, ...]
 
 
@@ -64,4 +65,5 @@ class BookRecord:
     subtitle: str
     page_count: int
     question_count: int
+    subject_id: str
     chapters: list[ChapterRecord]

@@ -5,19 +5,21 @@ from server.main import app
 
 def test_content_and_quick_quiz_flow() -> None:
     client = TestClient(app)
-    content = client.get("/api/content")
+    content = client.get("/api/content", params={"subject": "portugues"})
     assert content.status_code == 200
     book = content.json()
     assert book["source_file"] == "5.json"
+    assert book["subject_id"] == "portugues"
     assert book["question_count"] == 500
     assert book["chapters"]
+    assert book["chapters"][0]["id"].startswith("portugues-")
 
     chapter_id = book["chapters"][0]["id"]
     detail = client.get(f"/api/content/chapters/{chapter_id}")
     assert detail.status_code == 200
     assert detail.json()["paragraphs"]
 
-    started = client.post("/api/quizzes/start", json={"mode": "quick"})
+    started = client.post("/api/quizzes/start", json={"mode": "quick", "subject_id": "portugues"})
     assert started.status_code == 200
     attempt = started.json()
     assert attempt["question_count"] == 10
@@ -42,3 +44,31 @@ def test_content_and_quick_quiz_flow() -> None:
     progress = client.get("/api/progress")
     assert progress.status_code == 200
     assert progress.json()["questions_answered"] >= 1
+
+
+def test_subjects_and_math_english_quizzes() -> None:
+    client = TestClient(app)
+    subjects = client.get("/api/subjects")
+    assert subjects.status_code == 200
+    items = {item["id"]: item for item in subjects.json()}
+    assert set(items) == {"portugues", "matematica", "ingles"}
+    assert items["portugues"]["source_file"] == "5.json"
+    assert items["matematica"]["source_file"] == "1.json"
+    assert items["ingles"]["source_file"] == "2.json"
+    assert items["matematica"]["question_count"] > 0
+    assert items["ingles"]["question_count"] > 0
+
+    math_content = client.get("/api/content", params={"subject": "matematica"})
+    assert math_content.status_code == 200
+    assert math_content.json()["chapters"][0]["id"].startswith("matematica-")
+
+    math_quiz = client.post("/api/quizzes/start", json={"mode": "quick", "subject_id": "matematica"})
+    assert math_quiz.status_code == 200
+    assert math_quiz.json()["subject_id"] == "matematica"
+    assert math_quiz.json()["question_count"] == 10
+
+    english_quiz = client.post("/api/quizzes/start", json={"mode": "quick", "subject_id": "ingles"})
+    assert english_quiz.status_code == 200
+    assert english_quiz.json()["subject_id"] == "ingles"
+    assert english_quiz.json()["questions"][0]["id"] >= 20000
+

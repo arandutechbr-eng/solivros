@@ -27,6 +27,7 @@ export function ResultPage() {
     if (!attempt) return;
     const next = await startQuiz({
       mode: attempt.mode as "quick" | "medium" | "full" | "chapter" | "custom",
+      subject_id: attempt.subject_id ?? undefined,
       chapter_id: attempt.chapter_id ?? undefined,
       count: attempt.question_count,
       difficulty: attempt.difficulty,

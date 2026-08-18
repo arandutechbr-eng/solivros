@@ -1,25 +1,28 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useSubject } from "../context/SubjectContext";
 import { getContent, startQuiz } from "../services/simulado";
 import type { ChapterSummary } from "../types";
 
 export function QuizzesPage() {
   const navigate = useNavigate();
+  const { subjectId, subject } = useSubject();
   const [chapters, setChapters] = useState<ChapterSummary[]>([]);
   const [chapterId, setChapterId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
 
   useEffect(() => {
-    getContent()
+    setChapterId("");
+    getContent(subjectId)
       .then((book) => setChapters(book.chapters))
       .catch(() => setError("Não foi possível carregar os tópicos."));
-  }, []);
+  }, [subjectId]);
 
   async function begin(mode: "quick" | "medium" | "full") {
     setStarting(true);
     try {
-      const attempt = await startQuiz({ mode });
+      const attempt = await startQuiz({ mode, subject_id: subjectId });
       navigate(`/simulados/${attempt.id}`);
     } catch {
       setError("Não foi possível iniciar o simulado.");
@@ -32,7 +35,7 @@ export function QuizzesPage() {
     if (!chapterId) return;
     setStarting(true);
     try {
-      const attempt = await startQuiz({ mode: "chapter", chapter_id: chapterId });
+      const attempt = await startQuiz({ mode: "chapter", subject_id: subjectId, chapter_id: chapterId });
       navigate(`/simulados/${attempt.id}`);
     } catch {
       setError("Não foi possível iniciar o simulado do tópico.");
@@ -45,7 +48,11 @@ export function QuizzesPage() {
     <section className="space-y-8">
       <div>
         <h1 className="text-3xl font-semibold text-white">Escolha seu simulado</h1>
-        <p className="mt-2 text-slate-400">Todas as questões vêm do gabarito oficial do caderno 5.json.</p>
+        <p className="mt-2 text-slate-400">
+          {subject
+            ? `Questões oficiais de ${subject.title} — caderno ${subject.source_file}.`
+            : "Todas as questões vêm do gabarito oficial do caderno extraído."}
+        </p>
       </div>
 
       {error && <p className="text-sm text-rose-300">{error}</p>}

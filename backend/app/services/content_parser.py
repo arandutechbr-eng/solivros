@@ -25,7 +25,14 @@ NOISE_SNIPPETS = (
     "vedada, por quaisquer meios",
     "a sua reprodução, cópia, divulgação",
 )
-HEADER_TITLES = {"LÍNGUA PORTUGUESA", "SUMÁRIO", "ANOTAÇÕES", "CONHECIMENTOS GERAIS"}
+HEADER_TITLES = {
+    "LÍNGUA PORTUGUESA",
+    "LÍNGUA INGLESA",
+    "MATEMÁTICA",
+    "SUMÁRIO",
+    "ANOTAÇÕES",
+    "CONHECIMENTOS GERAIS",
+}
 
 
 @dataclass
@@ -143,8 +150,13 @@ def _extract_cover_titles(text: str) -> tuple[str, str]:
     title = "1.000 Questões para a Transpetro"
     if "TRANSPETRO" in joined.upper():
         title = "1.000 Questões para a Transpetro"
-    subtitle = "Língua Portuguesa"
-    if "LÍNGUA PORTUGUESA" in joined.upper() or "LINGUA PORTUGUESA" in joined.upper():
+    subtitle = "Conhecimentos Gerais"
+    upper = joined.upper()
+    if "MATEMÁTICA" in upper or "MATEMATICA" in upper:
+        subtitle = "Matemática — Conhecimentos Gerais"
+    elif "LÍNGUA INGLESA" in upper or "LINGUA INGLESA" in upper:
+        subtitle = "Língua Inglesa — Conhecimentos Gerais"
+    elif "LÍNGUA PORTUGUESA" in upper or "LINGUA PORTUGUESA" in upper:
         subtitle = "Língua Portuguesa — Conhecimentos Gerais"
     return title, subtitle
 

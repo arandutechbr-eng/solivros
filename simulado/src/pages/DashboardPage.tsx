@@ -1,28 +1,30 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useSubject } from "../context/SubjectContext";
 import { getContent, getProgress, startQuiz } from "../services/simulado";
 import type { ContentBook, Progress } from "../types";
 
 export function DashboardPage() {
   const navigate = useNavigate();
+  const { subjects, subjectId, subject, setSubjectId } = useSubject();
   const [progress, setProgress] = useState<Progress | null>(null);
   const [book, setBook] = useState<ContentBook | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
 
   useEffect(() => {
-    Promise.all([getProgress(), getContent()])
+    Promise.all([getProgress(), getContent(subjectId)])
       .then(([nextProgress, nextBook]) => {
         setProgress(nextProgress);
         setBook(nextBook);
       })
       .catch(() => setError("Não foi possível carregar o painel. Suba o backend em http://127.0.0.1:8001."));
-  }, []);
+  }, [subjectId]);
 
   async function begin(mode: "quick" | "medium" | "full") {
     setStarting(true);
     try {
-      const attempt = await startQuiz({ mode });
+      const attempt = await startQuiz({ mode, subject_id: subjectId });
       navigate(`/simulados/${attempt.id}`);
     } catch {
       setError("Não foi possível iniciar o simulado.");
@@ -41,13 +43,36 @@ export function DashboardPage() {
     <section className="space-y-8">
       <div>
         <p className="text-sm font-medium uppercase tracking-wide text-amber-300">Plataforma de estudos</p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-white">
-          {book?.title ?? "Simulados Transpetro"}
-        </h1>
-        <p className="mt-2 text-slate-400">{book?.subtitle ?? "Língua Portuguesa — questões oficiais CESGRANRIO"}</p>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-white">Escolha a matéria</h1>
+        <p className="mt-2 text-slate-400">Questões oficiais CESGRANRIO dos cadernos extraídos. Sem itens inventados.</p>
       </div>
 
       {error && <p className="text-sm text-rose-300">{error}</p>}
+
+      <div className="grid gap-4 md:grid-cols-3">
+        {subjects.map((item) => {
+          const selected = item.id === subjectId;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setSubjectId(item.id)}
+              className={`rounded-2xl border p-5 text-left transition ${
+                selected
+                  ? "border-amber-400 bg-slate-900"
+                  : "border-slate-800 bg-slate-900 hover:border-amber-400/40"
+              }`}
+            >
+              <p className="text-lg font-medium text-white">{item.title}</p>
+              <p className="mt-2 text-sm text-slate-400">{item.subtitle}</p>
+              <p className="mt-4 text-sm text-amber-300">
+                {item.question_count} questões · {item.chapter_count} tópicos
+              </p>
+              {selected && <p className="mt-2 text-xs uppercase tracking-wide text-amber-200">Selecionada</p>}
+            </button>
+          );
+        })}
+      </div>
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -70,7 +95,9 @@ export function DashboardPage() {
       </div>
 
       <div>
-        <h2 className="text-lg font-medium text-white">Começar um simulado</h2>
+        <h2 className="text-lg font-medium text-white">
+          Começar um simulado de {subject?.title ?? book?.title ?? "esta matéria"}
+        </h2>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <StartCard title="Simulado rápido" detail="10 questões oficiais · ~10 min" onClick={() => begin("quick")} disabled={starting} />
           <StartCard title="Simulado médio" detail="20 questões oficiais · ~20 min" onClick={() => begin("medium")} disabled={starting} />

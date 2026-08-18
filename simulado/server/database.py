@@ -1,7 +1,7 @@
 import os
 from collections.abc import Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
@@ -51,6 +51,18 @@ class Base(DeclarativeBase):
 _ready = False
 
 
+def _ensure_subject_column() -> None:
+    with engine.begin() as connection:
+        if DATABASE_URL.startswith("sqlite"):
+            columns = [row[1] for row in connection.execute(text("PRAGMA table_info(quiz_attempts)"))]
+            if "subject_id" not in columns:
+                connection.execute(text("ALTER TABLE quiz_attempts ADD COLUMN subject_id VARCHAR(32)"))
+        elif IS_POSTGRES:
+            connection.execute(
+                text("ALTER TABLE quiz_attempts ADD COLUMN IF NOT EXISTS subject_id VARCHAR(32)")
+            )
+
+
 def init_db() -> None:
     global _ready
     if _ready:
@@ -58,6 +70,7 @@ def init_db() -> None:
     from .catalog import ensure_catalog
 
     Base.metadata.create_all(bind=engine)
+    _ensure_subject_column()
     db = SessionLocal()
     try:
         ensure_catalog(db)

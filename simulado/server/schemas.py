@@ -64,11 +64,22 @@ class ContentBook(BaseModel):
     chapter_count: int
     paragraph_count: int
     question_count: int
+    subject_id: str
     chapters: list[ChapterSummary]
+
+
+class SubjectPublic(BaseModel):
+    id: str
+    title: str
+    subtitle: str
+    question_count: int
+    chapter_count: int
+    source_file: str
 
 
 class StartQuizRequest(BaseModel):
     mode: str = Field(pattern="^(quick|medium|full|chapter|custom)$")
+    subject_id: str | None = None
     chapter_id: str | None = None
     count: int | None = Field(default=None, ge=1, le=100)
     difficulty: str = "all"
@@ -84,6 +95,7 @@ class AttemptSummary(BaseModel):
     id: int
     mode: str
     title: str
+    subject_id: str | None = None
     chapter_id: str | None
     question_count: int
     difficulty: str
