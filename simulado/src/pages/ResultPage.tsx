@@ -76,6 +76,9 @@ export function ResultPage() {
             <p className="text-sm text-slate-400">
               Questão {index + 1} · oficial {question.number} · {question.is_correct ? "acerto" : "erro"}
             </p>
+            {question.stimulus && (
+              <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-400">{question.stimulus}</p>
+            )}
             <p className="mt-2 leading-7 text-slate-100">{question.prompt}</p>
             <p className="mt-3 text-sm text-slate-300">
               Você respondeu: {question.selected_letter ?? "—"} · Correta: {question.correct_letter}

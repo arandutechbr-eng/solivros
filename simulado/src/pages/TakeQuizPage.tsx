@@ -88,8 +88,9 @@ export function TakeQuizPage() {
       </div>
 
       {question.stimulus && (
-        <article className="rounded-2xl border border-slate-800 bg-slate-900 p-5 text-sm leading-7 text-slate-300">
-          {question.stimulus}
+        <article className="rounded-2xl border border-amber-400/30 bg-slate-900 p-5">
+          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-amber-300">Texto de apoio</p>
+          <p className="whitespace-pre-wrap text-sm leading-7 text-slate-300">{question.stimulus}</p>
         </article>
       )}
 

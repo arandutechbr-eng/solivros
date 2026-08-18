@@ -72,3 +72,12 @@ def test_subjects_and_math_english_quizzes() -> None:
     assert english_quiz.json()["subject_id"] == "ingles"
     assert english_quiz.json()["questions"][0]["id"] >= 20000
 
+
+def test_reading_passage_is_attached_to_question() -> None:
+    from server.catalog import load_questions
+
+    question = next(item for item in load_questions("portugues") if item.number == 463)
+    assert question.stimulus
+    assert "viagem" in question.stimulus.lower()
+    assert "desconhecido" in question.stimulus.lower()
+

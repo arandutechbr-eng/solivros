@@ -8,6 +8,7 @@ from pathlib import Path
 from app.services.content_parser import (
     HASH_PREFIX,
     HEADER_TITLES,
+    LICENSE_MARKER,
     SOURCE_BOOK_FILE,
     _strip_noise_lines,
     parse_extracted_book,
@@ -24,6 +25,12 @@ OPTION_RE = re.compile(
 GABARITO_HEADING_RE = re.compile(r"Æ\s+GABARITO|^\s*GABARITO\s*$", re.IGNORECASE | re.MULTILINE)
 NUMBER_LINE_RE = re.compile(r"^\d{1,3}$")
 LETTER_LINE_RE = re.compile(r"^[A-E]$", re.IGNORECASE)
+STIMULUS_HEAD_RE = re.compile(r"Utilize o texto|Texto\s+(?:[IVX]+|\d+)\b", re.IGNORECASE)
+TEXTO_LABEL_RE = re.compile(r"(?:^|\n)\s*Texto\s+([IVX]+|\d+)\b", re.IGNORECASE)
+TRAILING_PASSAGE_RE = re.compile(
+    r"(?m)^[ \t]*(?:Utilize o texto|Texto\s+(?:[IVX]+|\d+)\s*$)",
+    re.IGNORECASE,
+)
 
 HARD_TOPICS = (
     "INTERPRETA",
@@ -107,13 +114,13 @@ def extract_exam_questions(path: Path) -> list[ExtractedQuestion]:
         if not prompt:
             continue
 
-        stimulus = item.get("stimulus")
-        if stimulus:
-            last_stimulus = stimulus
-        elif item.get("carry_stimulus"):
-            stimulus = last_stimulus
-        else:
-            last_stimulus = None
+        available = item.get("stimulus") or last_stimulus
+        stimulus = _stimulus_for_prompt(available, prompt)
+        trailing = _text_after_options(item["body"])
+        if trailing:
+            last_stimulus = trailing
+        elif item.get("stimulus"):
+            last_stimulus = item["stimulus"]
 
         chapter = page_to_chapter.get(item["page"])
         if chapter is None:
@@ -245,11 +252,11 @@ def _split_raw_questions(pages: list[dict]) -> list[dict]:
 
 
 def _extract_stimulus(prefix: str) -> str | None:
-    match = re.search(r"(Utilize o texto.*)$", prefix, re.IGNORECASE | re.DOTALL)
+    match = STIMULUS_HEAD_RE.search(prefix)
     if not match:
         return None
-    text = _normalize_exam_text(match.group(1))
-    return text if len(text) > 40 else None
+    text = _clean_passage(prefix[match.start() :])
+    return text if _looks_like_passage(text) else None
 
 
 def _is_short_prefix(prefix: str) -> bool:
@@ -257,29 +264,87 @@ def _is_short_prefix(prefix: str) -> bool:
 
 
 def _parse_options(body: str) -> list[dict[str, str]]:
-    sequences: list[list[dict[str, str]]] = []
+    runs = [options for options, _end in _option_runs(body) if len(options) >= 4]
+    return runs[-1] if runs else []
+
+
+def _option_runs(body: str) -> list[tuple[list[dict[str, str]], int]]:
+    sequences: list[tuple[list[dict[str, str]], int]] = []
     current: list[dict[str, str]] = []
+    current_end = 0
     for match in OPTION_RE.finditer(body):
         letter = match.group("letter").upper()
-        text = _normalize_exam_text(match.group("text"))
+        raw_text = match.group("text")
+        cut = TRAILING_PASSAGE_RE.search(raw_text)
+        if cut:
+            text = _normalize_exam_text(raw_text[: cut.start()])
+            end = match.start("text") + cut.start()
+        else:
+            text = _normalize_exam_text(raw_text)
+            end = match.end()
         if not text:
             continue
         item = {"letter": letter, "text": text}
         if letter == "A":
             if current:
-                sequences.append(current)
+                sequences.append((current, current_end))
             current = [item]
+            current_end = end
             continue
         if current and letter == chr(ord(current[-1]["letter"]) + 1):
             current.append(item)
+            current_end = end
             continue
         if current:
-            sequences.append(current)
+            sequences.append((current, current_end))
         current = []
+        current_end = 0
     if current:
-        sequences.append(current)
-    valid = [sequence for sequence in sequences if len(sequence) >= 4]
-    return valid[-1] if valid else []
+        sequences.append((current, current_end))
+    return sequences
+
+
+def _text_after_options(body: str) -> str | None:
+    runs = [run for run in _option_runs(body) if len(run[0]) >= 4]
+    if not runs:
+        return None
+    rest = _clean_passage(body[runs[-1][1] :])
+    return rest if _looks_like_passage(rest) else None
+
+
+def _clean_passage(text: str) -> str:
+    if LICENSE_MARKER in text:
+        text = text.split(LICENSE_MARKER)[0]
+    return _normalize_exam_text(text)
+
+
+def _looks_like_passage(text: str) -> bool:
+    return len(text) >= 80
+
+
+def _labeled_passages(passage: str) -> dict[str, str]:
+    matches = list(TEXTO_LABEL_RE.finditer(passage))
+    if not matches:
+        return {}
+    labeled: dict[str, str] = {}
+    for index, match in enumerate(matches):
+        label = match.group(1).upper()
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(passage)
+        chunk = _normalize_exam_text(passage[match.start() : end])
+        if chunk:
+            labeled[label] = chunk
+    return labeled
+
+
+def _stimulus_for_prompt(passage: str | None, prompt: str) -> str | None:
+    if not passage:
+        return None
+    labeled = _labeled_passages(passage)
+    upper = prompt.upper()
+    for label in ("III", "II", "I"):
+        if re.search(rf"TEXTO\s+{label}\b", upper) and label in labeled:
+            return labeled[label]
+    return passage
 
 
 def _prompt_without_options(body: str) -> str:
