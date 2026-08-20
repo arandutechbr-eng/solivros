@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { StimulusBlock } from "../components/StimulusBlock";
 import { getAttempt, startQuiz } from "../services/simulado";
 import type { AttemptDetail } from "../types";
 
@@ -77,7 +78,9 @@ export function ResultPage() {
               Questão {index + 1} · oficial {question.number} · {question.is_correct ? "acerto" : "erro"}
             </p>
             {question.stimulus && (
-              <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-400">{question.stimulus}</p>
+              <div className="mt-3">
+                <StimulusBlock stimulus={question.stimulus} showJump={false} />
+              </div>
             )}
             <p className="mt-2 leading-7 text-slate-100">{question.prompt}</p>
             <p className="mt-3 text-sm text-slate-300">

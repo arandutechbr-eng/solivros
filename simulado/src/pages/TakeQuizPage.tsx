@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { StimulusBlock } from "../components/StimulusBlock";
 import { answerQuestion, finishQuiz, getAttempt } from "../services/simulado";
 import type { AnswerFeedback, AttemptDetail } from "../types";
 
@@ -87,14 +88,9 @@ export function TakeQuizPage() {
         <div className="h-full bg-amber-400" style={{ width: `${progress}%` }} />
       </div>
 
-      {question.stimulus && (
-        <article className="rounded-2xl border border-amber-400/30 bg-slate-900 p-5">
-          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-amber-300">Texto de apoio</p>
-          <p className="whitespace-pre-wrap text-sm leading-7 text-slate-300">{question.stimulus}</p>
-        </article>
-      )}
+      {question.stimulus && <StimulusBlock stimulus={question.stimulus} />}
 
-      <article className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+      <article id="questao" className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
         <p className="whitespace-pre-wrap leading-7 text-slate-100">{question.prompt}</p>
         <div className="mt-6 space-y-3">
           {question.options.map((option) => {
